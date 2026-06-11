@@ -34,7 +34,7 @@ class CheatAPI {
             name: 'Cheat',
             color1: '#FF6699',
             color2: '#FF3366',
-            color3: '#CC2255', 
+            color3: '#CC2255',
             blocks: [
                 {
                     opcode: 'stopCustomBlocks',
@@ -191,6 +191,98 @@ class CheatAPI {
                     tooltip: "The original block info this hook is being ran on.",
                     disableMonitor: true
                 },
+                '---',
+                {
+                    opcode: 'getBlock',
+                    blockType: Scratch.BlockType.REPORTER,
+                    text: "get block by ID [ID] in [TARGET]",
+                    tooltip: "Returns the JSON data for a block using its ID. The ID can come from a block output (like the 'this block' reporter) or the dev environment context menu option 'Copy Block ID'.",
+                    arguments: {
+                        ID: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: 'Put ID Here.'
+                        },
+                        TARGET: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: '_stage_',
+                            menu: 'targetMenu2'
+                        }
+                    }
+                },
+                {
+                    opcode: 'setBlock',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: "set block by ID [ID] in [TARGET] to [BLOCK]",
+                    tooltip: "Replaces a block (by ID) with the provided JSON data. Any references are updated automatically.",
+                    arguments: {
+                        ID: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: 'Put ID Here.'
+                        },
+                        TARGET: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: '_stage_',
+                            menu: 'targetMenu'
+                        },
+                        BLOCK: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: `{"id":"GC0Z]NVW^?%}!ny-I0u5","opcode":"control_wait_until","inputs":{},"fields":{},"next":null,"topLevel":false,"parent":"WmU^kF$=A^y!zQc(D(TX","shadow":false,"x":-97.60497444058637,"y":96.79013474869579}`
+                        }
+                    }
+                },
+                {
+                    opcode: 'addBlock',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: "add block in [TARGET] defined as [BLOCK]",
+                    tooltip: "Adds a block (by ID) into the mentioned target with the provided JSON data.",
+                    arguments: {
+                        TARGET: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: '_stage_',
+                            menu: 'targetMenu'
+                        },
+                        BLOCK: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: `{"id":"GC0Z]NVW^?%}!ny-I0u5","opcode":"control_wait_until","inputs":{},"fields":{},"next":null,"topLevel":false,"parent":"WmU^kF$=A^y!zQc(D(TX","shadow":false,"x":-97.60497444058637,"y":96.79013474869579}`
+                        }
+                    }
+                },
+                {
+                    opcode: 'removeBlock',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'remove block [ID] in [TARGET]',
+                    tooltip: 'Removes a block by ID and repairs all references (next, parent, inputs, and running threads).',
+                    arguments: {
+                        ID: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: 'Put ID Here.'
+                        },
+                        TARGET: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: '_stage_',
+                            menu: 'targetMenu'
+                        }
+                    }
+                },
+                {
+                    opcode: 'mutateBlock',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: "mutate block [BLOCK] in [TARGET] in-place",
+                    tooltip: "Modifies a block in place using its JSON data. The JSON must include a valid block ID.",
+                    arguments: {
+                        BLOCK: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: `Mutation Info Here`
+                        },
+
+                        TARGET: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: '_stage_',
+                            menu: 'targetMenu'
+                        }
+                    }
+                },
+                '---',
                 {
                     opcode: 'setTargetVar',
                     blockType: Scratch.BlockType.COMMAND,
@@ -257,6 +349,171 @@ class CheatAPI {
             }
 
         };
+    }
+    getBlock(args, util) {
+        const id = args.ID;
+        const targetType = args.TARGET;
+        const target = this.resolveTarget(targetType);
+        const blocks = Object.assign({}, ...(Array.isArray(target) ? target : [target])); // Allow for global lookup if needed.
+
+        return blocks[id];
+    }
+
+    removeBlock(args, util) {
+        const target = this.resolveTarget(args.TARGET);
+        if (!target) return;
+
+        const id = args.ID;
+        if (!id) return;
+
+        const blocks = target.blocks._blocks;
+        const block = blocks[id];
+        if (!block) return;
+
+        // helper: get parent input reference (if any)
+        function findParentInput(parentBlock, childId) {
+            if (!parentBlock?.inputs) return null;
+
+            for (const [name, input] of Object.entries(parentBlock.inputs)) {
+                if (input?.block === childId) {
+                    return { parentBlock, name, input };
+                }
+            }
+            return null;
+        }
+
+        // 1. Fix NEXT chain (a -> X -> b becomes a -> b)
+        for (const b of Object.values(blocks)) {
+            if (!b) continue;
+
+            if (b.next === id) {
+                b.next = block.next || null;
+            }
+        }
+
+        // 2. Fix PARENT chain + input stack healing
+        for (const b of Object.values(blocks)) {
+            if (!b) continue;
+
+            if (b.parent === id) {
+                // if removed block had a next, reattach child chain upward
+                b.parent = block.parent || null;
+            }
+
+            // fix input references
+            if (b.inputs) {
+                for (const input of Object.values(b.inputs)) {
+                    if (!input) continue;
+
+                    if (input.block === id) {
+                        // replace with removed block's next (inline chain healing)
+                        input.block = null;
+                    }
+                    if (input.shadow === id) {
+                        input.shadow = null;
+                    }
+                }
+            }
+        }
+
+        // 3. Fix parent input slot that directly contained this block
+        if (block.parent) {
+            const parent = blocks[block.parent];
+            const ref = findParentInput(parent, id);
+
+            if (ref) {
+                // replace removed block with its next sibling in that input slot
+                ref.input.block = null;
+            }
+        }
+
+        // 4. Remove block itself
+        delete blocks[id];
+
+        // 5. Optional: stop threads sitting on it
+        for (const thread of vm.runtime.threads) {
+            if (!thread.stack) continue;
+
+            if (thread.stack.includes(id)) {
+                vm.runtime._stopThread(thread);
+            }
+        }
+    }
+    mutateBlock(args, util) {
+        const target = this.resolveTarget(args.TARGET);
+        if (!target) return;
+
+        let info;
+        try {
+            info = JSON.parse(args.BLOCK);
+        } catch (e) {
+            console.error("ERR: Invalid block JSON");
+            return;
+        }
+
+        const id = args.ID;
+        if (!id) {
+            console.error("ERR: Missing block ID");
+            return;
+        }
+
+        const existing = target.blocks._blocks[id];
+        if (!existing) return;
+
+        // ID sanity check
+        if (info.id && info.id !== id) {
+            console.error("ERR: Block ID mismatch");
+            return;
+        }
+
+        // don't let payload override identity
+        delete info.id;
+
+        // simplest correct approach: merge into registry entry
+        Object.assign(existing, info);
+    }
+    addBlock(args, util) {
+        const block = JSON.parse(args.BLOCK);
+        const targetType = args.TARGET;
+        const target = this.resolveTarget(targetType);
+
+        target.blocks.createBlock(block);
+    }
+    setBlock(args, util) {
+        const id = args.ID;
+        const targetType = args.TARGET;
+        const target = this.resolveTarget(targetType);
+        const ogInfo = target.blocks._blocks[id];
+        function isInput(id) {
+            for (let input of Object.values(ogInfo.inputs)) {
+                if (input.block == id) return input.name;
+            }
+            return false;
+        }
+        const info = JSON.parse(args.BLOCK);
+
+        delete target.blocks._blocks[id];
+        target.blocks._blocks[info.id] = info;
+        for (let block of Object.values(target.blocks._blocks)) {
+            if (block.next == id) block.next = info.id;
+            if (block.parent == id) {
+                const isInp = isInput(block.id);
+                if (isInp && info.inputs[isInp] && !info.inputs?.[isInp]?.block) {
+                    info.inputs[isInp].block = block.id;
+                } else if (!isInp) { // If its the isInp part that failed.
+                    // If its not a input, this is the OG next block, so we should connect it as such.
+                    // Note that if the replacement script has a pre-defined next block we dont set it for preservation reasons.
+                    if (!info.next) info.next = block.id;
+                }
+                block.parent = info.id;
+            }
+            if (block.inputs) {
+                for (let input of Object.values(block.inputs)) {
+                    if (input.shadow == id) input.shadow = info.id;
+                    if (input.block == id) input.block = info.id;
+                }
+            }
+        }
     }
     thisBlock(args, util) {
         return JSON.stringify(util.thread.ogBlockInfo);
