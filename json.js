@@ -14,10 +14,7 @@
   const hasOwn = (obj, property) =>
     Object.prototype.hasOwnProperty.call(obj, property);
 
-  const makeLabel = (text) => ({
-    blockType: "label",
-    text: text,
-  });
+  const makeLabel = (text) => ();
 
   class JSONS {
     getInfo() {
