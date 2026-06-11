@@ -31,7 +31,7 @@ class CheatAPI {
     getInfo() {
         return {
             id: 'cheatapi',
-            name: 'Cheat / Anticheat API',
+            name: 'Cheat',
             color1: '#FF6699',
             color2: '#FF3366',
             color3: '#CC2255', 
