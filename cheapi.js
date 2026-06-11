@@ -907,7 +907,8 @@ class CheatAPI {
     pushThreadTarget(id, newTarget, oldTarget, stackClick) {
 const thread = this.runtime._pushThread(id, newTarget, { stackClick });
 thread.ogTarget = oldTarget;
-thread.blockContainer = newTarget.blocks;
+thread.target = newTarget;
+thread.blockContainer = oldTarget.blocks;
         return thread;
     }
 
