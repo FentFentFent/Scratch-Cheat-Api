@@ -23,7 +23,7 @@
         name: "JSON",
         color1: "#3271D0",
         color2: "#3160C0",
-        color1: "#1040A0",
+        color3: "#1040A0",
         blocks: [
           {
             opcode: "json_is_valid",
