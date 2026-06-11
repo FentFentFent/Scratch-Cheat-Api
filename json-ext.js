@@ -14,7 +14,6 @@
   const hasOwn = (obj, property) =>
     Object.prototype.hasOwnProperty.call(obj, property);
 
-  const makeLabel = (text) => {};
 
   class JSONS {
     getInfo() {
@@ -23,6 +22,8 @@
         // eslint-disable-next-line extension/should-translate
         name: "JSON",
         color1: "#3271D0",
+        color2: "#3160C0",
+        color1: "#1040A0",
         blocks: [
           {
             opcode: "json_is_valid",
