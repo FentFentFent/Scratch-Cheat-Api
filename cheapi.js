@@ -210,27 +210,6 @@ class CheatAPI {
                     }
                 },
                 {
-                    opcode: 'setBlock',
-                    blockType: Scratch.BlockType.COMMAND,
-                    text: "set block by ID [ID] in [TARGET] to [BLOCK]",
-                    tooltip: "Replaces a block (by ID) with the provided JSON data. Any references are updated automatically.",
-                    arguments: {
-                        ID: {
-                            type: Scratch.ArgumentType.STRING,
-                            defaultValue: 'Put ID Here.'
-                        },
-                        TARGET: {
-                            type: Scratch.ArgumentType.STRING,
-                            defaultValue: '_stage_',
-                            menu: 'targetMenu'
-                        },
-                        BLOCK: {
-                            type: Scratch.ArgumentType.STRING,
-                            defaultValue: `{"id":"GC0Z]NVW^?%}!ny-I0u5","opcode":"control_wait_until","inputs":{},"fields":{},"next":null,"topLevel":false,"parent":"WmU^kF$=A^y!zQc(D(TX","shadow":false,"x":-97.60497444058637,"y":96.79013474869579}`
-                        }
-                    }
-                },
-                {
                     opcode: 'addBlock',
                     blockType: Scratch.BlockType.COMMAND,
                     text: "add block in [TARGET] defined as [BLOCK]",
@@ -478,55 +457,6 @@ class CheatAPI {
         const target = this.resolveTarget(targetType);
 
         target.blocks.createBlock(block);
-    }
-    setBlock(args, util) {
-        const id = args.ID;
-        const targetType = args.TARGET;
-        const target = this.resolveTarget(targetType);
-        const ogInfo = target.blocks._blocks[id];
-        function isInput(id) {
-            for (let input of Object.values(ogInfo.inputs)) {
-                if (input.block == id) return input.name;
-            }
-            return false;
-        }
-        const info = JSON.parse(args.BLOCK);
-
-        for (const thread of vm.runtime.threads) {
-            if (!thread.stack) continue;
-
-            if (thread.stack.includes(id)) {
-                vm.runtime._stopThread(thread);
-            }
-        }
-
-        delete target.blocks._blocks[id];
-        if (ogInfo.topLevel && !info.parent) info.topLevel = true; // Preserve topLevel state if applicable.
-        target.blocks.createBlock(info);
-        
-        for (let block of Object.values(target.blocks._blocks)) {
-            if (block.next == id) block.next = info.id;
-            if (block.parent == id) {
-                const isInp = isInput(block.id);
-                if (isInp && info.inputs[isInp] && !info.inputs?.[isInp]?.block) {
-                    info.inputs[isInp].block = block.id;
-                } else if (!isInp) { // If its the isInp part that failed.
-                    // If its not a input, this is the OG next block, so we should connect it as such.
-                    // Note that if the replacement script has a pre-defined next block we dont set it for preservation reasons.
-                    if (!info.next) info.next = block.id;
-                }
-                block.parent = info.id;
-            }
-            if (block.inputs) {
-                for (let input of Object.values(block.inputs)) {
-                    if (input.shadow == id) input.shadow = info.id;
-                    if (input.block == id) input.block = info.id;
-                }
-            }
-        }
-
-        target.blocks.resetCache();
-
     }
     thisBlock(args, util) {
         return JSON.stringify(util.thread.ogBlockInfo);
