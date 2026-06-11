@@ -9,7 +9,7 @@ class CheatAPI {
             const wsProto = Blockly.WorkspaceSvg.prototype;
             const ogNewBlock = wsProto.newBlock;
             const info = this.getInfo();
-            wsProto.newBlock = function(...args) { // rest param for future proofing.
+            wsProto.newBlock = function (...args) { // rest param for future proofing.
                 const type = args[0];
                 const block = ogNewBlock.apply(this, args);
                 if (type.startsWith('cheatapi_') && !type.startsWith('cheatapi_menu_')) { // If this block is owned by us, and it isn't one of our menus.
@@ -34,11 +34,12 @@ class CheatAPI {
             name: 'Cheat / Anticheat API',
             color1: '#FF6699',
             color2: '#FF3366',
-            color3: '#CC2255',
+            color3: '#CC2255', 
             blocks: [
                 {
                     opcode: 'stopCustomBlocks',
                     text: 'stop custom blocks for [PROCCODE] in [TARGET]',
+                    tooltip: 'Stops all running instances of a specific custom procedure in the selected target.',
                     arguments: {
                         TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
                         PROCCODE: {
@@ -55,82 +56,77 @@ class CheatAPI {
                             })(),
                             menu: 'proccodeMenu'
                         }
-
                     }
                 },
                 {
                     opcode: 'stopBroadcasts',
                     text: 'stop broadcasts for [MESSAGE] in [TARGET]',
                     blockType: Scratch.BlockType.COMMAND,
+                    tooltip: 'Stops all scripts listening to a specific broadcast message in the selected target.',
                     arguments: {
                         TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
                         MESSAGE: {
-                            type: Scratch.ArgumentType.STRING, defaultValue: Object.values(vm.runtime.getTargetForStage().variables).find(e => e.type == 'broadcast_msg')?.id || '', menu: 'broadcastMenu'
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: Object.values(vm.runtime.getTargetForStage().variables).find(e => e.type == 'broadcast_msg')?.id || '',
+                            menu: 'broadcastMenu'
                         }
                     }
                 },
                 {
                     opcode: 'stopSprite',
-                    text: 'stop [TARGET]',
                     blockType: Scratch.BlockType.COMMAND,
+                    text: 'stop [TARGET]',
+                    tooltip: 'Immediately stops all scripts running in the selected target.',
                     arguments: {
-                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
+                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' }
                     }
                 },
                 {
                     opcode: 'runSprite',
-                    text: 'run [TARGET]',
                     blockType: Scratch.BlockType.COMMAND,
+                    text: 'run [TARGET]',
+                    tooltip: 'Starts running the selected target as if the green flag was clicked.',
                     arguments: {
-                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
+                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' }
                     }
                 },
                 {
                     opcode: 'thisTarget',
                     blockType: Scratch.BlockType.REPORTER,
                     text: 'this target',
+                    tooltip: 'Returns the current target context (sprite or stage) the script is running in.',
                     disableMonitor: true
                 },
                 {
                     opcode: 'setCustomArg',
                     blockType: Scratch.BlockType.COMMAND,
                     text: 'set argument [NAME] to [VALUE]',
+                    tooltip: 'Overrides a procedure argument value in the current stack frame.',
                     arguments: {
-                        NAME: {
-                            type: Scratch.ArgumentType.STRING,
-                            defaultValue: 'ArgumentName'
-                        },
-                        VALUE: {
-                            type: Scratch.ArgumentType.STRING,
-                            defaultValue: '1'
-                        }
+                        NAME: { type: Scratch.ArgumentType.STRING, defaultValue: 'ArgumentName' },
+                        VALUE: { type: Scratch.ArgumentType.STRING, defaultValue: '1' }
                     }
                 },
                 {
                     opcode: 'getCustomArg',
                     blockType: Scratch.BlockType.REPORTER,
                     text: 'argument [NAME]',
+                    tooltip: 'Gets a procedure argument from the current execution context.',
                     arguments: {
-                        NAME: {
-                            type: Scratch.ArgumentType.STRING,
-                            defaultValue: 'ArgumentName'
-                        },
-                        VALUE: {
-                            type: Scratch.ArgumentType.STRING,
-                            defaultValue: '1'
-                        }
+                        NAME: { type: Scratch.ArgumentType.STRING, defaultValue: 'ArgumentName' },
+                        VALUE: { type: Scratch.ArgumentType.STRING, defaultValue: '1' }
                     }
                 },
                 {
                     opcode: 'stopBlock',
-                    tooltip: 'cancel execution of the original block while we are in a hook.',
+                    tooltip: 'Cancels execution of the original hooked primitive block.',
                     blockType: Scratch.BlockType.COMMAND,
                     text: 'cancel original block'
                 },
                 {
                     opcode: 'returnBlock',
                     blockType: Scratch.BlockType.COMMAND,
-                    tooltip: 'This queues a return value for the primitive block that\'s hooked, it doesn\'t cancel execution of that original block though.',
+                    tooltip: 'Queues a return value for a hooked primitive without stopping execution unless explicitly handled.',
                     text: 'return [VALUE] for this hook',
                     arguments: {
                         VALUE: {
@@ -144,12 +140,14 @@ class CheatAPI {
                     opcode: 'getArgs',
                     blockType: Scratch.BlockType.REPORTER,
                     text: 'hook arguments',
+                    tooltip: 'Returns all arguments passed into the hooked primitive call.',
                     disableMonitor: true
                 },
                 {
                     opcode: 'getArg',
                     blockType: Scratch.BlockType.REPORTER,
                     text: 'hook argument [ARG]',
+                    tooltip: 'Gets a specific argument from the hooked primitive call.',
                     arguments: {
                         ARG: {
                             type: Scratch.ArgumentType.STRING,
@@ -161,6 +159,7 @@ class CheatAPI {
                     opcode: 'setArg',
                     blockType: Scratch.BlockType.COMMAND,
                     text: 'set hook argument [ARG] to [VALUE]',
+                    tooltip: 'Modifies an argument passed into the hooked primitive before execution.',
                     arguments: {
                         ARG: {
                             type: Scratch.ArgumentType.STRING,
@@ -177,6 +176,7 @@ class CheatAPI {
                     opcode: 'hookBlock',
                     blockType: Scratch.BlockType.COMMAND,
                     text: 'hook [BLOCK]',
+                    tooltip: 'Hooks into a primitive block and runs custom logic before/around it.',
                     arguments: {
                         BLOCK: {
                             type: Scratch.ArgumentType.STRING,
@@ -188,6 +188,7 @@ class CheatAPI {
                     opcode: 'setTargetVar',
                     blockType: Scratch.BlockType.COMMAND,
                     text: 'set [TARGET] var [VAR] to [VALUE]',
+                    tooltip: 'Sets a variable on a selected sprite or stage.',
                     arguments: {
                         TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
                         VAR: { type: Scratch.ArgumentType.STRING, defaultValue: 'score' },
@@ -198,6 +199,7 @@ class CheatAPI {
                     opcode: 'lockTargetVar',
                     blockType: Scratch.BlockType.COMMAND,
                     text: 'lock [TARGET] var [VAR]',
+                    tooltip: 'Locks a variable so it cannot be changed normally.',
                     arguments: {
                         TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
                         VAR: { type: Scratch.ArgumentType.STRING, defaultValue: 'score' }
@@ -207,6 +209,7 @@ class CheatAPI {
                     opcode: 'unlockTargetVar',
                     blockType: Scratch.BlockType.COMMAND,
                     text: 'unlock [TARGET] var [VAR]',
+                    tooltip: 'Removes protection and restores normal editing of a variable.',
                     arguments: {
                         TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
                         VAR: { type: Scratch.ArgumentType.STRING, defaultValue: 'score' }
@@ -216,8 +219,9 @@ class CheatAPI {
                     opcode: 'runInSprite',
                     blockType: Scratch.BlockType.COMMAND,
                     text: 'run as [SPRITE]',
+                    tooltip: 'Executes the following branch as another sprite or stage context.',
                     arguments: {
-                        SPRITE: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
+                        SPRITE: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' }
                     },
                     branchCount: 1
                 }
