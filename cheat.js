@@ -1,4 +1,4 @@
-class CheatAPI {
+class CheatAPI { // 0
     constructor(vmInstance, runtime) {
         this.vm = vmInstance;
         this.runtime = runtime;
@@ -356,7 +356,7 @@ class CheatAPI {
         const target = this.resolveTarget(targetType);
         const blocks = Object.assign({}, ...(Array.isArray(target) ? target.map(e => e.blocks._blocks) : [target.blocks._blocks])); // Allow for global lookup if needed.
 
-        return blocks[id];
+        return JSON.stringify(blocks[id]);
     }
 
     removeBlock(args, util) {
