@@ -24,7 +24,6 @@
         name: "JSON",
         color1: "#3271D0",
         blocks: [
-          makeLabel(Scratch.translate("General Utils")),
           {
             opcode: "json_is_valid",
             blockType: Scratch.BlockType.BOOLEAN,
@@ -131,7 +130,6 @@
               },
             },
           },
-          makeLabel("JSON Strings"),
           {
             opcode: "json_jlength",
             blockType: Scratch.BlockType.REPORTER,
@@ -192,7 +190,6 @@
               },
             },
           },
-          makeLabel(Scratch.translate("Array")),
           {
             opcode: "json_length",
             blockType: Scratch.BlockType.REPORTER,
@@ -319,7 +316,6 @@
               },
             },
           },
-          makeLabel(Scratch.translate("Advanced")),
           {
             opcode: "json_array_from",
             blockType: Scratch.BlockType.REPORTER,
@@ -492,7 +488,6 @@
               },
             },
           },
-          makeLabel(Scratch.translate("Lists")),
           {
             opcode: "json_vm_getlist",
             blockType: Scratch.BlockType.REPORTER,
