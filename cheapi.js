@@ -866,7 +866,7 @@ class CheatAPI {
         const name = args.SPRITE;
         let newTarget = (name === "_stage_")
             ? runtime.getTargetForStage()
-            : runtime.getSpriteTargetByName(name);
+            : runtime.getTargetById(name);
 
         let targets = runtime.targets;
         let thread;
