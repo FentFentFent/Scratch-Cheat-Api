@@ -185,6 +185,13 @@ class CheatAPI {
                     }
                 },
                 {
+                    opcode: "thisBlock",
+                    blockType: Scratch.BlockType.REPORTER,
+                    text: "this block",
+                    tooltip: "The original block info this hook is being ran on.",
+                    disableMonitor: true
+                },
+                {
                     opcode: 'setTargetVar',
                     blockType: Scratch.BlockType.COMMAND,
                     text: 'set [TARGET] var [VAR] to [VALUE]',
@@ -250,6 +257,9 @@ class CheatAPI {
             }
 
         };
+    }
+    thisBlock(args, util) {
+        return JSON.stringify(util.thread.ogBlockInfo);
     }
     setCustomArg(args, util) {
         const name = args.NAME;
@@ -594,6 +604,7 @@ class CheatAPI {
                 const thread = vm.runtime._pushThread(hookBranch, hookTarget);
                 thread.ogArgs = args2;
                 thread.ogTarget = target;
+                thread.ogBlockInfo = target.blocks.getBlock(util2.thread.peekStack());
                 // Wait until the hook thread finishes executing
                 await new Promise((resolve) => {
                     const interval = setInterval(() => {
