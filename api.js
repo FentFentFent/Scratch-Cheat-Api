@@ -5,6 +5,27 @@ class CheatAPI {
         this.hooks = new Map(); // primitive -> { original: [original func], branch: [block id]}
         runtime.on(runtime.constructor.PROJECT_STOP_ALL, () => this.hooks = new Map());
         window.inst = this;
+        Scratch.gui.getBlockly().then(Blockly => { // Blockly hook for tooltips.
+            const wsProto = Blockly.WorkspaceSvg.prototype;
+            const ogNewBlock = wsProto.newBlock;
+            const info = this.getInfo();
+            wsProto.newBlock = function(...args) { // rest param for future proofing.
+                const type = args[0];
+                const block = ogNewBlock.apply(this, args);
+                if (type.startsWith('cheatapi_') && !type.startsWith('cheatapi_menu_')) { // If this block is owned by us, and it isn't one of our menus.
+                    // Iterate through all block infos and set tooltips on this block if existent
+                    for (let blockInfo of info.blocks) {
+                        const fullType = 'cheatapi_' + blockInfo.opcode;
+                        if (type == fullType) {
+                            if (blockInfo.tooltip) {
+                                block.setTooltip(blockInfo.tooltip);
+                            }
+                        }
+                    }
+                }
+                return block;
+            }
+        })
     }
 
     getInfo() {
@@ -87,7 +108,7 @@ class CheatAPI {
                 },
                 {
                     opcode: 'getCustomArg',
-                    blockType: Scratch.BlockType.COMMAND,
+                    blockType: Scratch.BlockType.REPORTER,
                     text: 'argument [NAME]',
                     arguments: {
                         NAME: {
@@ -102,13 +123,15 @@ class CheatAPI {
                 },
                 {
                     opcode: 'stopBlock',
+                    tooltip: 'cancel execution of the original block while we are in a hook.',
                     blockType: Scratch.BlockType.COMMAND,
-                    text: 'cancel'
+                    text: 'cancel original block'
                 },
                 {
                     opcode: 'returnBlock',
                     blockType: Scratch.BlockType.COMMAND,
-                    text: 'return [VALUE]',
+                    tooltip: 'This queues a return value for the primitive block that\'s hooked, it doesn\'t cancel execution of that original block though.',
+                    text: 'return [VALUE] for this hook',
                     arguments: {
                         VALUE: {
                             type: Scratch.ArgumentType.STRING,
@@ -120,7 +143,7 @@ class CheatAPI {
                 {
                     opcode: 'getArgs',
                     blockType: Scratch.BlockType.REPORTER,
-                    text: 'arguments',
+                    text: 'hook arguments',
                     disableMonitor: true
                 },
                 {
