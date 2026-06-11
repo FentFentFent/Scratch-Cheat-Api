@@ -1,4 +1,4 @@
-class CheatAPI { // 0
+class CheatAPI { // 1
     constructor(vmInstance, runtime) {
         this.vm = vmInstance;
         this.runtime = runtime;
@@ -493,7 +493,9 @@ class CheatAPI { // 0
         const info = JSON.parse(args.BLOCK);
 
         delete target.blocks._blocks[id];
-        target.blocks._blocks[info.id] = info;
+        if (ogInfo.topLevel && !info.parent) info.topLevel = true; // Preserve toplevel state if applicable.
+        target.blocks.createBlock(info);
+        
         for (let block of Object.values(target.blocks._blocks)) {
             if (block.next == id) block.next = info.id;
             if (block.parent == id) {
