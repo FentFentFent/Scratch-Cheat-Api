@@ -354,7 +354,7 @@ class CheatAPI {
         const id = args.ID;
         const targetType = args.TARGET;
         const target = this.resolveTarget(targetType);
-        const blocks = Object.assign({}, ...(Array.isArray(target) ? target : [target])); // Allow for global lookup if needed.
+        const blocks = Object.assign({}, ...(Array.isArray(target) ? target.map(e => e.blocks._blocks) : [target.blocks._blocks])); // Allow for global lookup if needed.
 
         return blocks[id];
     }
