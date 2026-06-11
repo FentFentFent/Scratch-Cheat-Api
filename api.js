@@ -451,7 +451,7 @@ class CheatAPI {
             return;
         }
 
-        const id = args.ID;
+        const id = info.id
         if (!id) {
             console.error("ERR: Missing block ID");
             return;
