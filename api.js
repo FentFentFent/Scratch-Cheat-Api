@@ -1,632 +1,682 @@
-        class CheatAPI {
-            constructor(vmInstance, runtime) {
-                this.vm = vmInstance;
-                this.runtime = runtime;
-                this.hooks = new Map(); // primitive -> { original: [original func], branch: [block id]}
-                runtime.on(runtime.constructor.PROJECT_STOP_ALL, () => this.hooks = new Map());
-                window.inst = this;
-            }
+class CheatAPI {
+    constructor(vmInstance, runtime) {
+        this.vm = vmInstance;
+        this.runtime = runtime;
+        this.hooks = new Map(); // primitive -> { original: [original func], branch: [block id]}
+        runtime.on(runtime.constructor.PROJECT_STOP_ALL, () => this.hooks = new Map());
+        window.inst = this;
+    }
 
-            getInfo() {
-                return {
-                    id: 'cheatapi',
-                    name: 'Cheat / Anticheat API',
-                    color1: '#FF6699',
-                    color2: '#FF3366',
-                    color3: '#CC2255',
-                    blocks: [
-                        {
-                            opcode: 'stopCustomBlocks',
-                            text: 'stop custom blocks for [PROCCODE] in [TARGET]',
-                            arguments: {
-                                TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
-                                PROCCODE: {
-                                    type: Scratch.ArgumentType.STRING,
-                                    defaultValue: (() => {
-                                        for (const target of vm.runtime.targets) {
-                                            for (const block of Object.values(target.blocks._blocks)) {
-                                                if (block.opcode === 'procedures_prototype') {
-                                                    return block.parent;
-                                                }
-                                            }
+    getInfo() {
+        return {
+            id: 'cheatapi',
+            name: 'Cheat / Anticheat API',
+            color1: '#FF6699',
+            color2: '#FF3366',
+            color3: '#CC2255',
+            blocks: [
+                {
+                    opcode: 'stopCustomBlocks',
+                    text: 'stop custom blocks for [PROCCODE] in [TARGET]',
+                    arguments: {
+                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
+                        PROCCODE: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: (() => {
+                                for (const target of vm.runtime.targets) {
+                                    for (const block of Object.values(target.blocks._blocks)) {
+                                        if (block.opcode === 'procedures_prototype') {
+                                            return block.parent;
                                         }
-                                        return '';
-                                    })(),
-                                    menu: 'proccodeMenu'
+                                    }
                                 }
-
-                            }
-                        },
-                        {
-                            opcode: 'stopBroadcasts',
-                            text: 'stop broadcasts for [MESSAGE] in [TARGET]',
-                            blockType: Scratch.BlockType.COMMAND,
-                            arguments: {
-                                TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
-                                MESSAGE: {
-                                    type: Scratch.ArgumentType.STRING, defaultValue: Object.values(vm.runtime.getTargetForStage().variables).find(e => e.type == 'broadcast_msg')?.id || '', menu: 'broadcastMenu'
-                                }
-                            }
-                        },
-                        {
-                            opcode: 'stopSprite',
-                            text: 'stop [TARGET]',
-                            blockType: Scratch.BlockType.COMMAND,
-                            arguments: {
-                                TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
-                            }
-                        },
-                        {
-                            opcode: 'runSprite',
-                            text: 'run [TARGET]',
-                            blockType: Scratch.BlockType.COMMAND,
-                            arguments: {
-                                TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
-                            }
-                        },
-                        {
-                            opcode: 'thisTarget',
-                            blockType: Scratch.BlockType.REPORTER,
-                            text: 'this target',
-                            disableMonitor: true
-                        },
-                        {
-                            opcode: 'stopBlock',
-                            blockType: Scratch.BlockType.COMMAND,
-                            text: 'cancel'
-                        },
-                        {
-                            opcode: 'returnBlock',
-                            blockType: Scratch.BlockType.COMMAND,
-                            text: 'return [VALUE]',
-                            arguments: {
-                                VALUE: {
-                                    type: Scratch.ArgumentType.STRING,
-                                    defaultValue: '1'
-                                }
-                            },
-                            isTerminal: true
-                        },
-                        {
-                            opcode: 'getArgs',
-                            blockType: Scratch.BlockType.REPORTER,
-                            text: 'arguments',
-                            disableMonitor: true
-                        },
-                        {
-                            opcode: 'getArg',
-                            blockType: Scratch.BlockType.REPORTER,
-                            text: 'arg([ARG])',
-                            arguments: {
-                                ARG: {
-                                    type: Scratch.ArgumentType.STRING,
-                                    defaultValue: 'name'
-                                }
-                            }
-                        },
-                        {
-                            opcode: 'setArg',
-                            blockType: Scratch.BlockType.COMMAND,
-                            text: 'argument [ARG] = [VALUE]',
-                            arguments: {
-                                ARG: {
-                                    type: Scratch.ArgumentType.STRING,
-                                    defaultValue: 'name'
-                                },
-                                VALUE: {
-                                    type: Scratch.ArgumentType.STRING,
-                                    defaultValue: 'value'
-                                }
-                            }
-                        },
-                        {
-                            branchCount: 1,
-                            opcode: 'hookBlock',
-                            blockType: Scratch.BlockType.COMMAND,
-                            text: 'hook [BLOCK]',
-                            arguments: {
-                                BLOCK: {
-                                    type: Scratch.ArgumentType.STRING,
-                                    menu: 'primitiveMenu'
-                                }
-                            }
-                        },
-                        {
-                            opcode: 'setTargetVar',
-                            blockType: Scratch.BlockType.COMMAND,
-                            text: 'set [TARGET] var [VAR] to [VALUE]',
-                            arguments: {
-                                TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
-                                VAR: { type: Scratch.ArgumentType.STRING, defaultValue: 'score' },
-                                VALUE: { type: Scratch.ArgumentType.STRING, defaultValue: '100' }
-                            }
-                        },
-                        {
-                            opcode: 'lockTargetVar',
-                            blockType: Scratch.BlockType.COMMAND,
-                            text: 'lock [TARGET] var [VAR]',
-                            arguments: {
-                                TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
-                                VAR: { type: Scratch.ArgumentType.STRING, defaultValue: 'score' }
-                            }
-                        },
-                        {
-                            opcode: 'unlockTargetVar',
-                            blockType: Scratch.BlockType.COMMAND,
-                            text: 'unlock [TARGET] var [VAR]',
-                            arguments: {
-                                TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
-                                VAR: { type: Scratch.ArgumentType.STRING, defaultValue: 'score' }
-                            }
-                        },
-                        {
-                            opcode: 'runInSprite',
-                            blockType: Scratch.BlockType.COMMAND,
-                            text: 'run as [SPRITE]',
-                            arguments: {
-                                SPRITE: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
-                            },
-                            branchCount: 1
+                                return '';
+                            })(),
+                            menu: 'proccodeMenu'
                         }
-                    ],
-                    menus: {
-                        primitiveMenu: {
-                            acceptReporters: false,
-                            items: 'getAllPrimitiveOpcodes'
-                        },
-                        targetMenu: {
-                            acceptReporters: true,
-                            items: 'getAllTargets'
-                        },
-                        targetMenu2: {
-                            acceptReporters: true,
-                            items: 'getAllTargets2'
-                        },
-                        broadcastMenu: {
-                            acceptReporters: true,
-                            items: 'getAllBroadcasts'
-                        },
-                        proccodeMenu: {
-                            acceptReporters: true,
-                            items: 'getAllCustomBlocks'
+
+                    }
+                },
+                {
+                    opcode: 'stopBroadcasts',
+                    text: 'stop broadcasts for [MESSAGE] in [TARGET]',
+                    blockType: Scratch.BlockType.COMMAND,
+                    arguments: {
+                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
+                        MESSAGE: {
+                            type: Scratch.ArgumentType.STRING, defaultValue: Object.values(vm.runtime.getTargetForStage().variables).find(e => e.type == 'broadcast_msg')?.id || '', menu: 'broadcastMenu'
                         }
                     }
-
-                };
-            }
-            getAllCustomBlocks() {
-                const arr = [];
-                for (const target of vm.runtime.targets) {
-                    for (const block of Object.values(target.blocks._blocks)) {
-                        if (block.opcode === 'procedures_prototype') {
-                            arr.push({ text: block?.mutation?.proccode, value: block.parent });
+                },
+                {
+                    opcode: 'stopSprite',
+                    text: 'stop [TARGET]',
+                    blockType: Scratch.BlockType.COMMAND,
+                    arguments: {
+                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
+                    }
+                },
+                {
+                    opcode: 'runSprite',
+                    text: 'run [TARGET]',
+                    blockType: Scratch.BlockType.COMMAND,
+                    arguments: {
+                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu2' },
+                    }
+                },
+                {
+                    opcode: 'thisTarget',
+                    blockType: Scratch.BlockType.REPORTER,
+                    text: 'this target',
+                    disableMonitor: true
+                },
+                {
+                    opcode: 'setCustomArg',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'set argument [NAME] to [VALUE]',
+                    arguments: {
+                        NAME: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: 'ArgumentName'
+                        },
+                        VALUE: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: '1'
                         }
                     }
-                }
-                if (arr.length === 0) {
-                    arr.push('');
-                }
-                return arr;
-            }
-            getAllBroadcasts() {
-                const seen = new Set();
-                const result = [];
-
-                const addMsgsFromTarget = (t) => {
-                    for (const variable of Object.values(t.variables)) {
-                        if (variable.type === 'broadcast_msg' && !seen.has(variable.id)) {
-                            seen.add(variable.id);
-                            result.push({
-                                text: variable.name,
-                                value: variable.id
-                            });
+                },
+                {
+                    opcode: 'getCustomArg',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'argument [NAME]',
+                    arguments: {
+                        NAME: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: 'ArgumentName'
+                        },
+                        VALUE: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: '1'
                         }
                     }
-                };
-
-                addMsgsFromTarget(Scratch.vm.runtime.getTargetForStage());
-                if (result.length === 0) {
-                    result.push({ text: 'No broadcasts...', value: '' });
-                }
-
-                return result;
-            }
-            getAllPrimitiveOpcodes() {
-                return Object.keys(this.runtime._primitives)
-                    .filter(key => {
-                        const isFunc = typeof this.runtime._primitives[key] === 'function';
-                        const isNotSelf = !key.startsWith('cheatapi');
-                        return isNotSelf && isFunc
-                    })
-                    .sort()
-                    .map(name => ({
-                        text: name,
-                        value: name
-                    }));
-            }
-            getAllTargets() {
-                return this.vm.runtime.targets.map(e => {
-                    const name = e.getName();
-                    const id = e.isStage ? '_stage_' : e.id;
-                    return { text: name, value: id };
-                })
-            }
-            getAllTargets2() {
-                return [
-                    { text: 'All', value: '_all_' },
-                    ...this.vm.runtime.targets.map(e => {
-                        const name = e.getName();
-                        const id = e.isStage ? '_stage_' : e.id;
-                        return { text: name, value: id };
-                    })
-                ];
-            }
-
-            resolveTarget(targ) {
-                if (targ == '_all_') {
-                    return vm.runtime.targets;
-                } else if (targ == '_stage_') {
-                    return vm.runtime.getTargetForStage();
-                } else if (vm.runtime.getTargetById(targ)) {
-                    return vm.runtime.getTargetById(targ);
-                }
-                return null;
-            }
-            resolveCustomBlock(inputValue) {
-                for (const target of vm.runtime.targets) {
-                    for (const block of Object.values(target.blocks._blocks)) {
-                        if (
-                            block.opcode === 'procedures_prototype' &&
-                            block.parent === inputValue
-                        ) {
-                            return block;
+                },
+                {
+                    opcode: 'stopBlock',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'cancel'
+                },
+                {
+                    opcode: 'returnBlock',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'return [VALUE]',
+                    arguments: {
+                        VALUE: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: '1'
+                        }
+                    },
+                    isTerminal: true
+                },
+                {
+                    opcode: 'getArgs',
+                    blockType: Scratch.BlockType.REPORTER,
+                    text: 'arguments',
+                    disableMonitor: true
+                },
+                {
+                    opcode: 'getArg',
+                    blockType: Scratch.BlockType.REPORTER,
+                    text: 'hook argument [ARG]',
+                    arguments: {
+                        ARG: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: 'name'
                         }
                     }
+                },
+                {
+                    opcode: 'setArg',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'set hook argument [ARG] to [VALUE]',
+                    arguments: {
+                        ARG: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: 'name'
+                        },
+                        VALUE: {
+                            type: Scratch.ArgumentType.STRING,
+                            defaultValue: 'value'
+                        }
+                    }
+                },
+                {
+                    branchCount: 1,
+                    opcode: 'hookBlock',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'hook [BLOCK]',
+                    arguments: {
+                        BLOCK: {
+                            type: Scratch.ArgumentType.STRING,
+                            menu: 'primitiveMenu'
+                        }
+                    }
+                },
+                {
+                    opcode: 'setTargetVar',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'set [TARGET] var [VAR] to [VALUE]',
+                    arguments: {
+                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
+                        VAR: { type: Scratch.ArgumentType.STRING, defaultValue: 'score' },
+                        VALUE: { type: Scratch.ArgumentType.STRING, defaultValue: '100' }
+                    }
+                },
+                {
+                    opcode: 'lockTargetVar',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'lock [TARGET] var [VAR]',
+                    arguments: {
+                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
+                        VAR: { type: Scratch.ArgumentType.STRING, defaultValue: 'score' }
+                    }
+                },
+                {
+                    opcode: 'unlockTargetVar',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'unlock [TARGET] var [VAR]',
+                    arguments: {
+                        TARGET: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
+                        VAR: { type: Scratch.ArgumentType.STRING, defaultValue: 'score' }
+                    }
+                },
+                {
+                    opcode: 'runInSprite',
+                    blockType: Scratch.BlockType.COMMAND,
+                    text: 'run as [SPRITE]',
+                    arguments: {
+                        SPRITE: { type: Scratch.ArgumentType.STRING, defaultValue: '_stage_', menu: 'targetMenu' },
+                    },
+                    branchCount: 1
                 }
-                return null;
+            ],
+            menus: {
+                primitiveMenu: {
+                    acceptReporters: false,
+                    items: 'getAllPrimitiveOpcodes'
+                },
+                targetMenu: {
+                    acceptReporters: true,
+                    items: 'getAllTargets'
+                },
+                targetMenu2: {
+                    acceptReporters: true,
+                    items: 'getAllTargets2'
+                },
+                broadcastMenu: {
+                    acceptReporters: true,
+                    items: 'getAllBroadcasts'
+                },
+                proccodeMenu: {
+                    acceptReporters: true,
+                    items: 'getAllCustomBlocks'
+                }
             }
 
-            stopCustomBlocks(args, util) {
-                const proto = this.resolveCustomBlock(args.PROCCODE); // Prototype with mutation.proccode
-                if (!proto) {
-                    console.error("ERR: Error resolving prototype")
-                    console.info(proto);
-                    console.info(args.PROCCODE);
-                    return;
-                }
-                const def = args.PROCCODE; // Definition block ID
-                console.info(def);
-                const target = this.resolveTarget(args.TARGET);
-                if (Array.isArray(target)) {
-                    console.log('Block cant be used on "ALL" targets')
-                    return;
-                }
+        };
+    }
+    setCustomArg(args, util) {
+        const name = args.NAME;
+        const value = args.VALUE;
+        const frames = util.thread.stackFrames;
+        let frame;
 
-                for (const thread of vm.runtime.threads) {
 
-                    if (thread.target !== target || !thread.stack.find(e => thread.blockContainer._blocks[e]?.mutation?.proccode === proto.mutation.proccode)) {
-                        console.log('Thread does not include the definition.')
-                        continue;
-                    }
+        for (let i = frames.length - 1; i > 0; i++) {
+            const params = frames[i]?.params;
+            if (params && Object.prototype.hasOwnProperty.call(params, name)) {
+                frame = frames[i];
+                break;
+            }
+        }
 
-                    const stack = thread.stack;
-                    const blocks = thread.blockContainer._blocks;
-                    console.log(stack);
-                    console.log(blocks);
-                    // Find the EARLIEST matching procedures_call
-                    let matchIndex = -1;
-                    for (let i = 0; i < stack.length; i++) {
-                        const block = blocks[stack[i]];
-                        console.log(block);
-                        if (
-                            block?.opcode === 'procedures_call' &&
-                            block?.mutation?.proccode === proto.mutation.proccode
-                        ) {
-                            console.log("FoundCall!");
-                            matchIndex = i;
-                            break; // first match only
-                        }
-                    }
-                    console.log(matchIndex);
-                    if (matchIndex === -1) continue; // not found
-
-                    // Pop down to that block
-                    while (thread.stack.length > matchIndex + 1) {
-                        thread.popStack();
-                    }
-
-                    thread.goToNextBlock(); // skip that custom block
+        if (frame) frame.params[name] = value;
+    }
+    getCustomArg(args, util) {
+        return util.thread.getParam(args.NAME);
+    }
+    getAllCustomBlocks() {
+        const arr = [];
+        for (const target of vm.runtime.targets) {
+            for (const block of Object.values(target.blocks._blocks)) {
+                if (block.opcode === 'procedures_prototype') {
+                    arr.push({ text: block?.mutation?.proccode, value: block.parent });
                 }
             }
+        }
+        if (arr.length === 0) {
+            arr.push('');
+        }
+        return arr;
+    }
+    getAllBroadcasts() {
+        const seen = new Set();
+        const result = [];
 
-            stopSprite(args, util) {
-                const targetOrList = this.resolveTarget(args.TARGET);
-                if (Array.isArray(targetOrList)) {
-                    for (let target of targetOrList) {
-                        for (let thread of vm.runtime.threads) {
-                            if (thread.target == target) {
-                                vm.runtime._stopThread(thread);
-                            }
-                        }
-                    }
-                } else {
-                    const target = targetOrList;
-                    for (let thread of vm.runtime.threads) {
-                        if (thread.target == target) {
-                            vm.runtime._stopThread(thread);
-                        }
-                    }
+        const addMsgsFromTarget = (t) => {
+            for (const variable of Object.values(t.variables)) {
+                if (variable.type === 'broadcast_msg' && !seen.has(variable.id)) {
+                    seen.add(variable.id);
+                    result.push({
+                        text: variable.name,
+                        value: variable.id
+                    });
                 }
             }
-            runSprite(args, util) {
-                const targetOrList = this.resolveTarget(args.TARGET);
-                function runFlag(target) {
-                    util.startHats('event_whenflagclicked', null, target);
-                }
-                if (Array.isArray(targetOrList)) {
-                    for (let target of targetOrList) {
-                        runFlag(target);
-                    }
-                } else {
-                    const target = targetOrList;
-                    runFlag(target);
+        };
+
+        addMsgsFromTarget(Scratch.vm.runtime.getTargetForStage());
+        if (result.length === 0) {
+            result.push({ text: 'No broadcasts...', value: '' });
+        }
+
+        return result;
+    }
+    getAllPrimitiveOpcodes() {
+        return Object.keys(this.runtime._primitives)
+            .filter(key => {
+                const isFunc = typeof this.runtime._primitives[key] === 'function';
+                const isNotSelf = !key.startsWith('cheatapi');
+                return isNotSelf && isFunc
+            })
+            .sort()
+            .map(name => ({
+                text: name,
+                value: name
+            }));
+    }
+    getAllTargets() {
+        return this.vm.runtime.targets.map(e => {
+            const name = e.getName();
+            const id = e.isStage ? '_stage_' : e.id;
+            return { text: name, value: id };
+        })
+    }
+    getAllTargets2() {
+        return [
+            { text: 'All', value: '_all_' },
+            ...this.vm.runtime.targets.map(e => {
+                const name = e.getName();
+                const id = e.isStage ? '_stage_' : e.id;
+                return { text: name, value: id };
+            })
+        ];
+    }
+
+    resolveTarget(targ) {
+        if (targ == '_all_') {
+            return vm.runtime.targets;
+        } else if (targ == '_stage_') {
+            return vm.runtime.getTargetForStage();
+        } else if (vm.runtime.getTargetById(targ)) {
+            return vm.runtime.getTargetById(targ);
+        }
+        return null;
+    }
+    resolveCustomBlock(inputValue) {
+        for (const target of vm.runtime.targets) {
+            for (const block of Object.values(target.blocks._blocks)) {
+                if (
+                    block.opcode === 'procedures_prototype' &&
+                    block.parent === inputValue
+                ) {
+                    return block;
                 }
             }
-            stopBroadcasts(args, util) {
-                const threads = vm.runtime.threads;
-                const blocks = new Set();
-                const targetOrList = this.resolveTarget(args.TARGET);
-                if (Array.isArray(targetOrList)) {
-                    for (let target of targetOrList) {
-                        for (let block of Object.values(target.blocks._blocks)) {
-                            if (block.opcode === 'event_whenbroadcastreceived' && block.fields.BROADCAST_OPTION) {
-                                if (block.fields.BROADCAST_OPTION.id === args.MESSAGE) {
-                                    blocks.add(block.id);
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    const target = targetOrList;
-                    for (let block of Object.values(target.blocks._blocks)) {
-                        if (block.opcode === 'event_whenbroadcastreceived' && block.fields.BROADCAST_OPTION) {
-                            if (block.fields.BROADCAST_OPTION.id === args.MESSAGE) {
-                                blocks.add(block.id);
-                            }
-                        }
-                    }
+        }
+        return null;
+    }
+
+    stopCustomBlocks(args, util) {
+        const proto = this.resolveCustomBlock(args.PROCCODE); // Prototype with mutation.proccode
+        if (!proto) {
+            console.error("ERR: Error resolving prototype")
+            console.info(proto);
+            console.info(args.PROCCODE);
+            return;
+        }
+        const def = args.PROCCODE; // Definition block ID
+        console.info(def);
+        const target = this.resolveTarget(args.TARGET);
+        if (Array.isArray(target)) {
+            console.log('Block cant be used on "ALL" targets')
+            return;
+        }
+
+        for (const thread of vm.runtime.threads) {
+
+            if (thread.target !== target || !thread.stack.find(e => thread.blockContainer._blocks[e]?.mutation?.proccode === proto.mutation.proccode)) {
+                console.log('Thread does not include the definition.')
+                continue;
+            }
+
+            const stack = thread.stack;
+            const blocks = thread.blockContainer._blocks;
+            console.log(stack);
+            console.log(blocks);
+            // Find the EARLIEST matching procedures_call
+            let matchIndex = -1;
+            for (let i = 0; i < stack.length; i++) {
+                const block = blocks[stack[i]];
+                console.log(block);
+                if (
+                    block?.opcode === 'procedures_call' &&
+                    block?.mutation?.proccode === proto.mutation.proccode
+                ) {
+                    console.log("FoundCall!");
+                    matchIndex = i;
+                    break; // first match only
                 }
-                for (let thread of threads) {
-                    if (blocks.has(thread.topBlock)) {
+            }
+            console.log(matchIndex);
+            if (matchIndex === -1) continue; // not found
+
+            // Pop down to that block
+            while (thread.stack.length > matchIndex + 1) {
+                thread.popStack();
+            }
+
+            thread.goToNextBlock(); // skip that custom block
+        }
+    }
+
+    stopSprite(args, util) {
+        const targetOrList = this.resolveTarget(args.TARGET);
+        if (Array.isArray(targetOrList)) {
+            for (let target of targetOrList) {
+                for (let thread of vm.runtime.threads) {
+                    if (thread.target == target) {
                         vm.runtime._stopThread(thread);
                     }
                 }
             }
-            thisTarget(args, util) {
-                return JSON.stringify(util.thread.ogTarget || util.target || vm.editingTarget);
-            }
-            stopBlock(args, util) {
-                util.thread.stopExecution = true;
-            }
-            returnBlock(args, util) {
-                util.thread.primReturnVal = args.VALUE;
-            }
-            getArgs(args, util) {
-                if (!util.thread.ogArgs) return '';
-                return JSON.stringify(util.thread.ogArgs);
-            }
-            getArg(args, util) {
-                if (!util.thread.ogArgs) return '';
-                return typeof util.thread.ogArgs[args.ARG] == 'object' && util.thread.ogArgs[args.ARG] !== null ? JSON.stringify(util.thread.ogArgs[args.ARG]) : String(util.thread.ogArgs[args.ARG]);
-            }
-            setArg(args, util) {
-                if (!util.thread.ogArgs) return null;
-                util.thread.ogArgs[args.ARG] = args.VALUE;
-            }
-            setTargetVar(args, util) {
-                const targetName = args.TARGET;
-                const varName = args.VAR;
-                const value = args.VALUE;
-
-                const target = (targetName === "_stage_")
-                    ? this.runtime.getTargetForStage()
-                    : this.runtime.getSpriteTargetByName(targetName);
-
-                if (!target || typeof target.lookupOrCreateVariable !== 'function') return;
-
-                const variable = target.lookupOrCreateVariable(varName, varName);
-                if (!variable) return;
-
-                variable.value = value; // Will fail silently if locked
-            }
-
-            lockTargetVar(args, util) {
-                const targetName = args.TARGET;
-                const varName = args.VAR;
-
-                const target = (targetName === "_stage_")
-                    ? this.runtime.getTargetForStage()
-                    : this.runtime.getSpriteTargetByName(targetName);
-
-                if (!target || typeof target.lookupOrCreateVariable !== 'function') return;
-
-                const variable = target.lookupOrCreateVariable(varName, varName);
-                if (!variable) return;
-
-                if (Object.getOwnPropertyDescriptor(variable, 'value')?.get) return;
-
-                const actualValue = variable.value;
-                Object.defineProperty(variable, "value", {
-                    get() {
-                        return actualValue;
-                    },
-                    set(v) {
-                        return v;
-                    },
-                    configurable: true
-                });
-            }
-
-            unlockTargetVar(args, util) {
-                const targetName = args.TARGET;
-                const varName = args.VAR;
-
-                const target = (targetName === "_stage_")
-                    ? this.runtime.getTargetForStage()
-                    : this.runtime.getSpriteTargetByName(targetName);
-
-                if (!target || typeof target.lookupOrCreateVariable !== 'function') return;
-
-                const variable = target.lookupOrCreateVariable(varName, varName);
-                if (!variable) return;
-
-                const currentValue = variable.value;
-                delete variable.value;
-                variable.value = currentValue;
-            }
-            getThisBlock(util, branch, optBranch) {
-                if (branch) return util.thread.blockContainer.getBranch(util.thread.peekStack(), optBranch ? optBranch : 1);
-                else return util.thread.blockContainer.getBlock(util.thread.peekStack());
-            }
-            hookBlock(args, util) {
-                const target = util.target;
-                const originalPrimitiveMaybe = vm.runtime._primitives[args.BLOCK];
-                const originalPrimitive = originalPrimitiveMaybe.original ? originalPrimitiveMaybe.original : originalPrimitiveMaybe;
-                if (!originalPrimitive) return "ERR: Block doesn't exist";
-
-                const currentThread = util.thread;
-                // Get the first branch block from the current block ( the hooked code branch)
-                const branchBlock = currentThread.target.blocks.getBranch(currentThread.peekStack(), 1);
-                if (!branchBlock) return "ERR: No branch to run";
-
-                if (!this.hooks.has(originalPrimitive)) {
-                    this.hooks.set(originalPrimitive, []);
+        } else {
+            const target = targetOrList;
+            for (let thread of vm.runtime.threads) {
+                if (thread.target == target) {
+                    vm.runtime._stopThread(thread);
                 }
-
-                // Add current hook info: branchBlock and target where hook runs
-                this.hooks.get(originalPrimitive).push({ branchBlock, target });
-
-                if (vm.runtime._primitives[args.BLOCK].wrappered) return "Hook set";
-
-                vm.runtime._primitives[args.BLOCK] = async (args2, util2) => {
-                    const hooks = this.hooks.get(originalPrimitive) || [];
-                    let stopExecutionRequested = false;
-                    let returnRequested = null;
-                    const target = util2.target;
-                    for (const { branchBlock: hookBranch, target: hookTarget } of hooks) {
-                        const thread = vm.runtime._pushThread(hookBranch, hookTarget);
-                        thread.ogArgs = args2;
-                        thread.ogTarget = target;
-                        // Wait until the hook thread finishes executing
-                        await new Promise((resolve) => {
-                            const interval = setInterval(() => {
-                                if (!vm.runtime.isActiveThread(thread)) {
-                                    if (thread.primReturnVal) {
-                                        returnRequested = thread.primReturnVal;
-                                    }
-                                    if (thread.stopExecution) {
-                                        // if we stopped execution, tell the parent thread so we dont rerun the hooked primitive's original function.
-                                        stopExecutionRequested = true;
-                                        clearInterval(interval);
-                                        resolve();
-                                        return;
-                                    }
-                                    clearInterval(interval);
-                                    resolve();
-                                }
-                            }, 1);
-                        });
-
-                        if (stopExecutionRequested) break; // Stop running further hooks if exit requested
-                    }
-
-                    if (stopExecutionRequested) {
-                        if (returnRequested) return returnRequested;
-                        return;
-                    } // Skip original primitive if any hook stopped execution
-
-                    // Call original primitive normally (supports async or sync)
-                    const result = originalPrimitive.call(vm.runtime._primitives, args2, util2);
-                    if (result instanceof Promise) {
-                        const final = await result;
-                        return returnRequested ? returnRequested : final;
-                    } else {
-                        return returnRequested ? returnRequested : result;
-                    }
-                };
-
-                vm.runtime._primitives[args.BLOCK].wrappered = true;
-                vm.runtime._primitives[args.BLOCK].original = originalPrimitive;
-                return "Hook set";
-            }
-
-
-            async runInSprite(args, util) {
-                const runtime = this.runtime;
-                const currentThread = util.thread;
-                const currentTarget = currentThread.ogTarget || util.target;
-
-                const branch = currentThread.ogTarget
-                    ? currentThread.ogTarget.blocks.getBranch(currentThread.peekStack(), 1)
-                    : this.getThisBlock(util, true, 1);
-                console.log(branch);
-                window.util = util;
-                console.log(currentThread);
-                console.log(currentTarget);
-                if (!branch) return;
-
-                const name = args.SPRITE;
-                let newTarget = (name === "_stage_")
-                    ? runtime.getTargetForStage()
-                    : runtime.getSpriteTargetByName(name);
-
-                let targets = runtime.targets;
-                let thread;
-
-                if (name.startsWith("_all_")) {
-                    if (name.includes("2")) {
-                        targets = targets.filter(t => t.isOriginal);
-                    } else if (name.includes("3")) {
-                        targets = targets.filter(t => !t.isOriginal);
-                    }
-
-                    newTarget = targets[0];
-                }
-
-                if (newTarget) {
-                    thread = this.pushThreadTarget(branch, newTarget, currentTarget, false);
-                    this.addMissKeys(currentThread, thread);
-                }
-
-                if (name.startsWith("_all_")) {
-                    for (const target of targets) {
-                        const t = this.pushThreadTarget(branch, target, currentTarget, false);
-                        this.addMissKeys(currentThread, t);
-                    }
-                }
-                window.t = thread;
-                if (thread) {
-                    await new Promise(resolve => {
-                        const interval = setInterval(() => {
-                            if (!runtime.isActiveThread(thread)) {
-                                clearInterval(interval);
-                                resolve();
-                            }
-                        }, 1);
-                    });
-                }
-            }
-            pushThreadTarget(id, newTarget, oldTarget, stackClick) {
-                const thread = this.runtime._pushThread(id, oldTarget, { stackClick });
-                thread.ogTarget = oldTarget;
-                thread.target = newTarget;
-                return thread;
-            }
-
-            addMissKeys(oldThread, newThread) {
-                newThread.updateMonitor = oldThread.updateMonitor;
-                newThread.status = oldThread.status;
             }
         }
+    }
+    runSprite(args, util) {
+        const targetOrList = this.resolveTarget(args.TARGET);
+        function runFlag(target) {
+            util.startHats('event_whenflagclicked', null, target);
+        }
+        if (Array.isArray(targetOrList)) {
+            for (let target of targetOrList) {
+                runFlag(target);
+            }
+        } else {
+            const target = targetOrList;
+            runFlag(target);
+        }
+    }
+    stopBroadcasts(args, util) {
+        const threads = vm.runtime.threads;
+        const blocks = new Set();
+        const targetOrList = this.resolveTarget(args.TARGET);
+        if (Array.isArray(targetOrList)) {
+            for (let target of targetOrList) {
+                for (let block of Object.values(target.blocks._blocks)) {
+                    if (block.opcode === 'event_whenbroadcastreceived' && block.fields.BROADCAST_OPTION) {
+                        if (block.fields.BROADCAST_OPTION.id === args.MESSAGE) {
+                            blocks.add(block.id);
+                        }
+                    }
+                }
+            }
+        } else {
+            const target = targetOrList;
+            for (let block of Object.values(target.blocks._blocks)) {
+                if (block.opcode === 'event_whenbroadcastreceived' && block.fields.BROADCAST_OPTION) {
+                    if (block.fields.BROADCAST_OPTION.id === args.MESSAGE) {
+                        blocks.add(block.id);
+                    }
+                }
+            }
+        }
+        for (let thread of threads) {
+            if (blocks.has(thread.topBlock)) {
+                vm.runtime._stopThread(thread);
+            }
+        }
+    }
+    thisTarget(args, util) {
+        return JSON.stringify(util.thread.ogTarget || util.target || vm.editingTarget);
+    }
+    stopBlock(args, util) {
+        util.thread.stopExecution = true;
+    }
+    returnBlock(args, util) {
+        util.thread.primReturnVal = args.VALUE;
+    }
+    getArgs(args, util) {
+        if (!util.thread.ogArgs) return '';
+        return JSON.stringify(util.thread.ogArgs);
+    }
+    getArg(args, util) {
+        if (!util.thread.ogArgs) return '';
+        return typeof util.thread.ogArgs[args.ARG] == 'object' && util.thread.ogArgs[args.ARG] !== null ? JSON.stringify(util.thread.ogArgs[args.ARG]) : String(util.thread.ogArgs[args.ARG]);
+    }
+    setArg(args, util) {
+        if (!util.thread.ogArgs) return null;
+        util.thread.ogArgs[args.ARG] = args.VALUE;
+    }
+    setTargetVar(args, util) {
+        const targetName = args.TARGET;
+        const varName = args.VAR;
+        const value = args.VALUE;
 
-        Scratch.extensions.register(new CheatAPI(vm, vm.runtime));
+        const target = (targetName === "_stage_")
+            ? this.runtime.getTargetForStage()
+            : this.runtime.getSpriteTargetByName(targetName);
+
+        if (!target || typeof target.lookupOrCreateVariable !== 'function') return;
+
+        const variable = target.lookupOrCreateVariable(varName, varName);
+        if (!variable) return;
+
+        variable.value = value; // Will fail silently if locked
+    }
+
+    lockTargetVar(args, util) {
+        const targetName = args.TARGET;
+        const varName = args.VAR;
+
+        const target = (targetName === "_stage_")
+            ? this.runtime.getTargetForStage()
+            : this.runtime.getSpriteTargetByName(targetName);
+
+        if (!target || typeof target.lookupOrCreateVariable !== 'function') return;
+
+        const variable = target.lookupOrCreateVariable(varName, varName);
+        if (!variable) return;
+
+        if (Object.getOwnPropertyDescriptor(variable, 'value')?.get) return;
+
+        const actualValue = variable.value;
+        Object.defineProperty(variable, "value", {
+            get() {
+                return actualValue;
+            },
+            set(v) {
+                return v;
+            },
+            configurable: true
+        });
+    }
+
+    unlockTargetVar(args, util) {
+        const targetName = args.TARGET;
+        const varName = args.VAR;
+
+        const target = (targetName === "_stage_")
+            ? this.runtime.getTargetForStage()
+            : this.runtime.getSpriteTargetByName(targetName);
+
+        if (!target || typeof target.lookupOrCreateVariable !== 'function') return;
+
+        const variable = target.lookupOrCreateVariable(varName, varName);
+        if (!variable) return;
+
+        const currentValue = variable.value;
+        delete variable.value;
+        variable.value = currentValue;
+    }
+    getThisBlock(util, branch, optBranch) {
+        if (branch) return util.thread.blockContainer.getBranch(util.thread.peekStack(), optBranch ? optBranch : 1);
+        else return util.thread.blockContainer.getBlock(util.thread.peekStack());
+    }
+    hookBlock(args, util) {
+        const target = util.target;
+        const originalPrimitiveMaybe = vm.runtime._primitives[args.BLOCK];
+        const originalPrimitive = originalPrimitiveMaybe.original ? originalPrimitiveMaybe.original : originalPrimitiveMaybe;
+        if (!originalPrimitive) return "ERR: Block doesn't exist";
+
+        const currentThread = util.thread;
+        // Get the first branch block from the current block ( the hooked code branch)
+        const branchBlock = currentThread.target.blocks.getBranch(currentThread.peekStack(), 1);
+        if (!branchBlock) return "ERR: No branch to run";
+
+        if (!this.hooks.has(originalPrimitive)) {
+            this.hooks.set(originalPrimitive, []);
+        }
+
+        // Add current hook info: branchBlock and target where hook runs
+        this.hooks.get(originalPrimitive).push({ branchBlock, target });
+
+        if (vm.runtime._primitives[args.BLOCK].wrappered) return "Hook set";
+
+        vm.runtime._primitives[args.BLOCK] = async (args2, util2) => {
+            const hooks = this.hooks.get(originalPrimitive) || [];
+            let stopExecutionRequested = false;
+            let returnRequested = null;
+            const target = util2.target;
+            for (const { branchBlock: hookBranch, target: hookTarget } of hooks) {
+                const thread = vm.runtime._pushThread(hookBranch, hookTarget);
+                thread.ogArgs = args2;
+                thread.ogTarget = target;
+                // Wait until the hook thread finishes executing
+                await new Promise((resolve) => {
+                    const interval = setInterval(() => {
+                        if (!vm.runtime.isActiveThread(thread)) {
+                            if (thread.primReturnVal) {
+                                returnRequested = thread.primReturnVal;
+                            }
+                            if (thread.stopExecution) {
+                                // if we stopped execution, tell the parent thread so we dont rerun the hooked primitive's original function.
+                                stopExecutionRequested = true;
+                                clearInterval(interval);
+                                resolve();
+                                return;
+                            }
+                            clearInterval(interval);
+                            resolve();
+                        }
+                    }, 1);
+                });
+
+                if (stopExecutionRequested) break; // Stop running further hooks if exit requested
+            }
+
+            if (stopExecutionRequested) {
+                if (returnRequested) return returnRequested;
+                return;
+            } // Skip original primitive if any hook stopped execution
+
+            // Call original primitive normally (supports async or sync)
+            const result = originalPrimitive.call(vm.runtime._primitives, args2, util2);
+            if (result instanceof Promise) {
+                const final = await result;
+                return returnRequested ? returnRequested : final;
+            } else {
+                return returnRequested ? returnRequested : result;
+            }
+        };
+
+        vm.runtime._primitives[args.BLOCK].wrappered = true;
+        vm.runtime._primitives[args.BLOCK].original = originalPrimitive;
+        return "Hook set";
+    }
+
+
+    async runInSprite(args, util) {
+        const runtime = this.runtime;
+        const currentThread = util.thread;
+        const currentTarget = currentThread.ogTarget || util.target;
+
+        const branch = currentThread.ogTarget
+            ? currentThread.ogTarget.blocks.getBranch(currentThread.peekStack(), 1)
+            : this.getThisBlock(util, true, 1);
+        console.log(branch);
+        window.util = util;
+        console.log(currentThread);
+        console.log(currentTarget);
+        if (!branch) return;
+
+        const name = args.SPRITE;
+        let newTarget = (name === "_stage_")
+            ? runtime.getTargetForStage()
+            : runtime.getSpriteTargetByName(name);
+
+        let targets = runtime.targets;
+        let thread;
+
+        if (name.startsWith("_all_")) {
+            if (name.includes("2")) {
+                targets = targets.filter(t => t.isOriginal);
+            } else if (name.includes("3")) {
+                targets = targets.filter(t => !t.isOriginal);
+            }
+
+            newTarget = targets[0];
+        }
+
+        if (newTarget) {
+            thread = this.pushThreadTarget(branch, newTarget, currentTarget, false);
+            this.addMissKeys(currentThread, thread);
+        }
+
+        if (name.startsWith("_all_")) {
+            for (const target of targets) {
+                const t = this.pushThreadTarget(branch, target, currentTarget, false);
+                this.addMissKeys(currentThread, t);
+            }
+        }
+        window.t = thread;
+        if (thread) {
+            await new Promise(resolve => {
+                const interval = setInterval(() => {
+                    if (!runtime.isActiveThread(thread)) {
+                        clearInterval(interval);
+                        resolve();
+                    }
+                }, 1);
+            });
+        }
+    }
+    pushThreadTarget(id, newTarget, oldTarget, stackClick) {
+        const thread = this.runtime._pushThread(id, oldTarget, { stackClick });
+        thread.ogTarget = oldTarget;
+        thread.target = newTarget;
+        return thread;
+    }
+
+    addMissKeys(oldThread, newThread) {
+        newThread.updateMonitor = oldThread.updateMonitor;
+        newThread.status = oldThread.status;
+    }
+}
+
+Scratch.extensions.register(new CheatAPI(vm, vm.runtime));
